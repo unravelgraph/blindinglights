@@ -3,21 +3,32 @@ export default async function handler(req, res) {
   const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 
   try {
-    const notionRes = await fetch(`https://api.notion.com/v1/databases/${DATABASE_ID}/query`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${NOTION_TOKEN}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ page_size: 100 })
-    });
+    let allResults = [];
+    let hasMore = true;
+    let startCursor = undefined;
 
-    const data = await notionRes.json();
+    while (hasMore) {
+      const notionRes = await fetch(`https://api.notion.com/v1/databases/${DATABASE_ID}/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${NOTION_TOKEN}`,
+          "Notion-Version": "2022-06-28",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          page_size: 100,
+          start_cursor: startCursor
+        })
+      });
 
-    // Allow your Forumactif page to call this
+      const data = await notionRes.json();
+      allResults = allResults.concat(data.results);
+      hasMore = data.has_more;
+      startCursor = data.next_cursor;
+    }
+
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.status(200).json(data);
+    res.status(200).json({ results: allResults });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
